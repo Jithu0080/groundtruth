@@ -1,0 +1,8 @@
+# Experiment: dense + BM25 with RRF (Experiment 2). Set chunk_size to the Experiment 1 winner
+chunk_size: 800
+overlap: 100
+retriever: hybrid
+embedding_model: BAAI/bge-small-en-v1.5
+reranker: null
+candidates: 50
+k: 10

@@ -1,0 +1,8 @@
+# Experiment: DELIBERATELY BAD - copy into production.yaml in a PR to demonstrate the CI gate failing
+chunk_size: 120
+overlap: 0
+retriever: dense
+embedding_model: BAAI/bge-small-en-v1.5
+reranker: null
+candidates: 50
+k: 10

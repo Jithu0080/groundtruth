@@ -1,0 +1,3 @@
+# Gold spans are character offsets into these files: never let git rewrite them
+data/corpus/*.txt -text
+*.jsonl text eol=lf

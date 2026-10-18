@@ -1,0 +1,8 @@
+# Experiment: chunk size, small (Experiment 1)
+chunk_size: 400
+overlap: 50
+retriever: dense
+embedding_model: BAAI/bge-small-en-v1.5
+reranker: null
+candidates: 50
+k: 10

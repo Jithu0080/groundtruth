@@ -1,0 +1,8 @@
+# Baseline: dense retrieval, 800-character chunks. Every experiment changes ONE thing from this.
+chunk_size: 800        # characters
+overlap: 100           # characters
+retriever: dense       # dense | bm25 | hybrid
+embedding_model: BAAI/bge-small-en-v1.5
+reranker: null         # e.g. cross-encoder/ms-marco-MiniLM-L-6-v2
+candidates: 50         # first-stage results fetched before fusion/reranking
+k: 10

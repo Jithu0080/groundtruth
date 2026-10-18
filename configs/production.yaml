@@ -1,0 +1,9 @@
+# The config the CI gate protects. After the experiments, copy the winning settings here,
+# run it on the test split and `groundtruth set-baseline --run production`.
+chunk_size: 800
+overlap: 100
+retriever: dense
+embedding_model: BAAI/bge-small-en-v1.5
+reranker: null
+candidates: 50
+k: 10

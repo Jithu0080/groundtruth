@@ -1,0 +1,9 @@
+# Offline smoke config for tests: fictional fixture corpus + LSA backend. Never report these numbers.
+corpus_dir: tests/fixtures/mini_corpus
+chunk_size: 300
+overlap: 50
+retriever: dense
+embedding_backend: lsa
+candidates: 20
+k: 10
+cache_dir: .cache/test
