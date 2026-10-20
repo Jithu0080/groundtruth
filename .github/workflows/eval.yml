@@ -9,7 +9,10 @@ on:
 jobs:
   retrieval-eval:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # The first run embeds the whole corpus on CPU (slow); later runs reuse the cache.
+    timeout-minutes: 90
+    env:
+      PYTHONPATH: src
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -33,6 +36,4 @@ jobs:
         if: hashFiles('data/golden_v1.jsonl') != ''
         run: python -m groundtruth validate --golden data/golden_v1.jsonl
       - name: Tests + regression gate
-        env:
-          PYTHONPATH: src
         run: pytest -q -rs

@@ -12,6 +12,15 @@ from groundtruth import GroundtruthError
 
 DOC_ID_RE = re.compile(r"^[A-Za-z0-9._-]+$")
 PAGE_NUMBER_RE = re.compile(r"^\s*(page\s*)?\d{1,4}(\s*(of|/)\s*\d{1,4})?\s*$", re.IGNORECASE)
+# Supreme Court Reports print line markers A..H in the margin; they extract as lone capital letters.
+MARGIN_LINE_RE = re.compile(r"^(?:[A-H]\s+)*[A-H]$")
+MARGIN_RUN_RE = re.compile(r"(?<!\S)(?:[A-H] ){2,}[A-H](?!\S)")
+WORD_RE = re.compile(r"[A-Za-z]+")
+# Two of these side by side are a real phrase ("in to", "a part", "any one"), never an extraction split.
+FUNCTION_WORDS = set(
+    "a an the in to on at by of for from with as is be it or no not up out off over any some one all "
+    "per part way time where there here when what who how into onto upon".split()
+)
 
 
 def make_doc_id(name: str) -> str:
@@ -44,12 +53,63 @@ def clean_pages(pages: list[str], min_repeat_ratio: float = 0.5) -> str:
         n = len(lines)
         for i, ln in enumerate(lines):
             at_edge = i < edge or i >= n - edge
-            if PAGE_NUMBER_RE.match(ln) or (at_edge and ln in repeated):
+            if PAGE_NUMBER_RE.match(ln) or MARGIN_LINE_RE.match(ln) or (at_edge and ln in repeated):
                 continue
             kept.append(ln)
     text = " ".join(kept)
     text = re.sub(r"-\s+(?=[a-z])", "", text)  # re-join words hyphenated across lines
+    text = re.sub(r"\s+", " ", text)
+    text = MARGIN_RUN_RE.sub(" ", text)  # margin markers that landed inside a line
     return re.sub(r"\s+", " ", text).strip()
+
+
+def repair_split_words(docs: dict[str, str], min_joined: int = 5, dominance: float = 3.0) -> tuple[dict[str, str], int]:
+    """Re-join words that PDF extraction split with a space ("fa cts" -> "facts"), using corpus statistics.
+
+    Adjacent alphabetic tokens a, b are joined when, across the whole corpus:
+      - the joined word (case-insensitive) appears at least `min_joined` times,
+      - it appears at least `dominance` times as often as the split pair "a b", and
+      - at least one piece is rarer on its own than the joined word, so ordinary
+        two-word phrases such as "in to" or "a part" are left alone.
+    Returns (repaired docs, number of joins made).
+    """
+    words: Counter[str] = Counter()
+    pairs: Counter[tuple[str, str]] = Counter()
+    for text in docs.values():
+        toks = [m.group(0).lower() for m in WORD_RE.finditer(text)]
+        words.update(toks)
+    for text in docs.values():
+        for a, b in re.findall(r"(?<![A-Za-z])([A-Za-z]+) (?=([A-Za-z]+)(?![A-Za-z]))", text):
+            pairs[(a.lower(), b.lower())] += 1
+
+    def should_join(a: str, b: str) -> bool:
+        if a in FUNCTION_WORDS and b in FUNCTION_WORDS:
+            return False
+        joined = words.get(a + b, 0)
+        if joined < min_joined or joined < dominance * pairs.get((a, b), 0):
+            return False
+        return min(words.get(a, 0), words.get(b, 0)) < joined
+
+    # the second word is only looked at (not consumed), so every adjacent pair gets checked
+    pattern = re.compile(r"(?<![A-Za-z])([A-Za-z]+) (?=([A-Za-z]+)(?![A-Za-z]))")
+    total = 0
+    out: dict[str, str] = {}
+    for doc_id, text in docs.items():
+        n = 0
+
+        def fix(m: re.Match[str]) -> str:
+            nonlocal n
+            a, b = m.group(1), m.group(2)
+            if should_join(a.lower(), b.lower()):
+                n += 1
+                return a  # drop the space; b follows unchanged
+            return m.group(0)
+
+        # two passes catch words split twice ("appe lla nts")
+        repaired = pattern.sub(fix, pattern.sub(fix, text))
+        out[doc_id] = repaired
+        total += n
+    return out, total
 
 
 def _pdf_pages(path: Path) -> list[str]:
@@ -71,6 +131,7 @@ def ingest(src: str | Path, out: str | Path) -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
     rows: list[dict[str, str]] = []
     seen: dict[str, Path] = {}
+    cleaned: dict[str, str] = {}
     for f in files:
         doc_id = make_doc_id(f.stem)
         if doc_id in seen:
@@ -84,8 +145,12 @@ def ingest(src: str | Path, out: str | Path) -> int:
         if len(text) < 200:
             print(f"warning: {f.name} produced only {len(text)} characters (scanned PDF?); skipped")
             continue
-        (out_dir / f"{doc_id}.txt").write_text(text, encoding="utf-8")
+        cleaned[doc_id] = text
         rows.append({"doc_id": doc_id, "title": f.stem, "court": "", "year": "", "source_file": f.name})
+    repaired, joins = repair_split_words(cleaned)
+    print(f"repaired {joins} words split by PDF extraction")
+    for doc_id, text in repaired.items():
+        (out_dir / f"{doc_id}.txt").write_text(text, encoding="utf-8")
     with open(out_dir / "metadata.csv", "w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=["doc_id", "title", "court", "year", "source_file"])
         writer.writeheader()

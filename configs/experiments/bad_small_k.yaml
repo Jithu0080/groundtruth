@@ -1,0 +1,7 @@
+# DELIBERATELY BAD: production settings with k=3, used only to demonstrate the gate failing\nchunk_size: 400
+overlap: 50
+embedding_model: BAAI/bge-small-en-v1.5
+candidates: 50
+k: 3
+retriever: hybrid
+reranker: cross-encoder/ms-marco-MiniLM-L-6-v2

@@ -18,3 +18,5 @@ raw/
 
 # per-run outputs (commit baseline.json and experiments.md deliberately)
 results/runs/
+results/runs*/
+data/candidates_more.jsonl

@@ -174,3 +174,68 @@ def sample_candidates(
         per_doc[d] += 1
         out.append({"cid": f"c{len(out) + 1:03d}", "doc_id": d, "start": s, "end": e, "text": text[s:e]})
     return out
+
+
+def locate_answer(candidate: dict, answer_text: str) -> tuple[int, int]:
+    """Find `answer_text` inside a candidate passage; return its document offsets (start, end).
+
+    Empty `answer_text` means the whole passage is the gold span. Matching ignores differences in
+    whitespace, so text copied from a notebook display still matches the stored passage.
+    """
+    passage, base = candidate["text"], candidate["start"]
+    wanted = " ".join(answer_text.split())
+    if not wanted:
+        return candidate["start"], candidate["end"]
+    # Map each non-space-collapsed position back to the original passage offsets.
+    norm_chars: list[str] = []
+    origin: list[int] = []
+    prev_space = False
+    for i, ch in enumerate(passage):
+        if ch.isspace():
+            if prev_space or not norm_chars:
+                continue
+            norm_chars.append(" ")
+            prev_space = True
+        else:
+            norm_chars.append(ch)
+            prev_space = False
+        origin.append(i)
+    norm = "".join(norm_chars)
+    at = norm.find(wanted)
+    if at < 0:
+        raise GroundtruthError("answer text not found in the passage: copy it exactly from the passage shown")
+    start = base + origin[at]
+    end = base + origin[at + len(wanted) - 1] + 1
+    return start, end
+
+
+def assign_splits(records: list[dict], n_dev: int, seed: int = 0) -> list[dict]:
+    """Return copies of `records` with `split` set: about `n_dev` dev, the rest test.
+
+    Stratified by category so every category appears in both splits in proportion. Deterministic
+    for a given seed. Unanswerable probes always go to test.
+    """
+    rng = random.Random(seed)
+    answerable = [r for r in records if r.get("answerable", True)]
+    if not 0 <= n_dev <= len(answerable):
+        raise GroundtruthError(f"n_dev must be between 0 and {len(answerable)}")
+    by_cat: dict[str, list[dict]] = {}
+    for r in answerable:
+        by_cat.setdefault(str(r["category"]), []).append(r)
+    dev_ids: set[str] = set()
+    share = n_dev / len(answerable) if answerable else 0.0
+    remainders = []
+    for cat in sorted(by_cat):
+        items = sorted(by_cat[cat], key=lambda r: str(r["qid"]))
+        rng.shuffle(items)
+        exact = share * len(items)
+        take = int(exact)
+        dev_ids.update(str(r["qid"]) for r in items[:take])
+        remainders.append((exact - take, cat, items[take:]))
+    # hand out the leftover dev slots to the categories with the largest remainders
+    for _, _, rest in sorted(remainders, key=lambda t: (-t[0], t[1])):
+        if len(dev_ids) >= n_dev:
+            break
+        if rest:
+            dev_ids.add(str(rest[0]["qid"]))
+    return [{**r, "split": "dev" if str(r["qid"]) in dev_ids else "test"} for r in records]

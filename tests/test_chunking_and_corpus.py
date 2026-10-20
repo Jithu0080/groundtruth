@@ -90,3 +90,26 @@ def test_ingest_empty_folder(tmp_path):
 def test_corpus_hash_changes_with_content():
     assert corpus_hash({"a": "x"}) != corpus_hash({"a": "y"})
     assert corpus_hash({"a": "x", "b": "y"}) == corpus_hash({"b": "y", "a": "x"})
+
+
+def test_margin_letters_removed():
+    from groundtruth.corpus import clean_pages
+
+    out = clean_pages(["A\nThe appeal is allowed.\nB\nC D E\nCosts follow.\nF G H the end"])
+    assert out == "The appeal is allowed. Costs follow. the end"
+
+
+def test_repair_split_words_uses_corpus_statistics():
+    from groundtruth.corpus import repair_split_words
+
+    common = "The forest officer recorded the facts and the appellants declared the land. " * 10
+    docs = {
+        "d1": common,
+        "d2": "On fa cts, the For est land was declare d reserved and the appe llants were heard.",
+        "d3": "He went in to the room and a part of the land was sold. " * 3 + "into apart " * 20,
+    }
+    out, n = repair_split_words(docs)
+    assert out["d2"] == "On facts, the Forest land was declared reserved and the appellants were heard."
+    assert n == 4
+    assert out["d3"] == docs["d3"]  # "in to" / "a part": both halves are common words, never joined
+    assert out["d1"] == docs["d1"]

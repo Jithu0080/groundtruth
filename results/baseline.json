@@ -1,0 +1,47 @@
+{
+  "config": "production",
+  "golden": "data/golden_v1.jsonl",
+  "split": "test",
+  "n_queries": 74,
+  "recall@5": 0.5946,
+  "recall@10": 0.6757,
+  "recall@candidates": 0.7568,
+  "candidates": 50,
+  "mrr": 0.4913,
+  "ndcg@10": 0.5354,
+  "latency_p50_ms": 109.0,
+  "latency_p95_ms": 139.4,
+  "avg_chars_topk": 3958.1,
+  "by_category": {
+    "factual": {
+      "n": 16,
+      "recall@10": 0.8125,
+      "mrr": 0.6458,
+      "ndcg@10": 0.689
+    },
+    "holding": {
+      "n": 15,
+      "recall@10": 0.6,
+      "mrr": 0.3468,
+      "ndcg@10": 0.4056
+    },
+    "paraphrase": {
+      "n": 14,
+      "recall@10": 0.5714,
+      "mrr": 0.377,
+      "ndcg@10": 0.4237
+    },
+    "procedural": {
+      "n": 11,
+      "recall@10": 0.7273,
+      "mrr": 0.6455,
+      "ndcg@10": 0.6626
+    },
+    "statute": {
+      "n": 18,
+      "recall@10": 0.6667,
+      "mrr": 0.4691,
+      "ndcg@10": 0.5163
+    }
+  }
+}

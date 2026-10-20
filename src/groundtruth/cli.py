@@ -56,6 +56,32 @@ def _cmd_validate(a: argparse.Namespace) -> int:
     return 0 if rep.ok else 1
 
 
+def _cmd_finalize(a: argparse.Namespace) -> int:
+    from collections import Counter
+
+    from groundtruth.corpus import load_corpus
+    from groundtruth.golden import assign_splits, read_jsonl, validate_records
+
+    out = Path(a.out)
+    if out.exists() and not a.overwrite:
+        raise GroundtruthError(f"{out} already exists and golden sets are immutable; write golden_v2.jsonl instead")
+    records = assign_splits(read_jsonl(a.drafts), n_dev=a.dev, seed=a.seed)
+    rep = validate_records(records, load_corpus(a.corpus))
+    for w in rep.warnings:
+        print(f"warning: {w}")
+    if not rep.ok:
+        for e in rep.errors:
+            print(f"error: {e}")
+        raise GroundtruthError(f"{len(rep.errors)} errors; fix the drafts and run finalize again")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with open(out, "w", encoding="utf-8") as fh:
+        for r in records:
+            fh.write(json.dumps(r, ensure_ascii=False) + "\n")
+    splits = Counter(r["split"] for r in records)
+    print(f"wrote {len(records)} queries to {out} ({dict(splits)}). Commit it; never edit it afterwards.")
+    return 0
+
+
 def _cmd_evaluate(a: argparse.Namespace) -> int:
     from groundtruth.config import load_config
     from groundtruth.evaluate import format_summary, run_retrieval_eval
@@ -140,6 +166,15 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--golden", default="data/golden_v1.jsonl")
     s.add_argument("--corpus", default="data/corpus")
     s.set_defaults(fn=_cmd_validate)
+
+    s = sub.add_parser("finalize", help="assign dev/test splits to drafts and freeze the golden set")
+    s.add_argument("--drafts", default="data/golden_drafts.jsonl")
+    s.add_argument("--out", default="data/golden_v1.jsonl")
+    s.add_argument("--corpus", default="data/corpus")
+    s.add_argument("--dev", type=int, default=30, help="number of dev queries (the rest are test)")
+    s.add_argument("--seed", type=int, default=0)
+    s.add_argument("--overwrite", action="store_true", help="only before you have reported any numbers")
+    s.set_defaults(fn=_cmd_finalize)
 
     for name, fn, helptext in [
         ("evaluate", _cmd_evaluate, "evaluate one retrieval config"),

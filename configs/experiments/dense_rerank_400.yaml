@@ -1,0 +1,8 @@
+# Ablation: reranker without BM25
+chunk_size: 400
+overlap: 50
+embedding_model: BAAI/bge-small-en-v1.5
+candidates: 50
+k: 10
+retriever: dense
+reranker: cross-encoder/ms-marco-MiniLM-L-6-v2
