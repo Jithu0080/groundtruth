@@ -4,6 +4,8 @@
 
 > **Headline:** hybrid search + a cross-encoder reranker raises recall@10 from **0.513 to 0.676** on 74 held-out legal questions (**+0.162, 95% CI +0.041 to +0.284**), raises MRR from 0.291 to 0.491, and sends **half as much text** to the LLM. A CI gate fails any pull request that drops recall@10 by more than 1 point.
 
+**Explore the results:** https://jithu0080.github.io/groundtruth/ (every golden question, with what each system retrieved)
+
 ## Results
 
 Test split of `data/golden_v1.jsonl` (74 questions). Corpus: 700 Supreme Court of India judgments from 2023. Embedding model `BAAI/bge-small-en-v1.5`, reranker `cross-encoder/ms-marco-MiniLM-L-6-v2` over the top 50 first-stage results. Latency measured on a Colab T4 GPU.

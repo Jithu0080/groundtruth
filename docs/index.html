@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Groundtruth: legal retrieval explorer</title>
+<meta name="description" content="Browse 104 human-reviewed legal questions and see what a baseline and a reranked retrieval system return from 700 Supreme Court of India judgments.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink: #1d2740;
+  --ink-soft: #55607a;
+  --paper: #f8f9fb;
+  --panel: #ffffff;
+  --rule: #dde1ea;
+  --mark: #ffe45c;
+  --mark-soft: #fff4b8;
+  --better: #1c7c70;
+  --worse: #b5532e;
+  --same: #9aa3b5;
+  --focus: #2f5bd3;
+  --serif: "Source Serif 4", Georgia, serif;
+  --sans: "Public Sans", system-ui, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #e4e8f1;
+    --ink-soft: #a3acc0;
+    --paper: #131926;
+    --panel: #1a2232;
+    --rule: #2c3649;
+    --mark: #b89a12;
+    --mark-soft: #4a4116;
+    --better: #3fb5a4;
+    --worse: #e07a52;
+    --same: #6b768c;
+    --focus: #8aa8ff;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font: 16px/1.55 var(--sans);
+}
+a { color: inherit; text-underline-offset: 3px; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 3px; }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
+@media (max-width: 640px) { .wrap { padding: 0 16px; } }
+
+/* header */
+.top { display: flex; justify-content: space-between; align-items: baseline; padding: 22px 0 0; gap: 16px; }
+.brand { font-weight: 700; font-size: 17px; letter-spacing: -0.01em; }
+.top nav { display: flex; gap: 18px; font-size: 15px; color: var(--ink-soft); }
+
+/* hero */
+.hero { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 40px; padding: 48px 0 40px; align-items: center; }
+.hero h1 {
+  font-family: var(--serif); font-weight: 600; font-size: clamp(30px, 4.2vw, 46px);
+  line-height: 1.12; letter-spacing: -0.015em; margin: 0 0 18px;
+}
+.hero h1 .hl { background: linear-gradient(transparent 58%, var(--mark) 58%); padding: 0 2px; }
+.hero p { margin: 0 0 12px; max-width: 34em; color: var(--ink-soft); }
+.hero p strong { color: var(--ink); font-weight: 600; }
+.figure { background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 18px 18px 10px; }
+.figure h2 { font-size: 15px; font-weight: 600; margin: 0 0 2px; }
+.figure .sub { font-size: 13px; color: var(--ink-soft); margin: 0 0 6px; }
+#slope { width: 100%; height: auto; display: block; }
+#slope .band { fill: none; stroke-linecap: round; cursor: pointer; transition: opacity .15s; }
+#slope .band:hover, #slope .band.active { opacity: 1 !important; }
+#slope text { fill: var(--ink-soft); font: 12px var(--sans); }
+#slope .axis-title { fill: var(--ink); font-weight: 600; font-size: 13px; }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--ink-soft); padding: 6px 2px 4px; }
+.legend span::before { content: ""; display: inline-block; width: 14px; height: 4px; border-radius: 2px; margin-right: 6px; vertical-align: middle; background: var(--c); }
+
+/* explorer */
+.section-head { display: flex; justify-content: space-between; align-items: end; gap: 16px; flex-wrap: wrap; border-top: 1px solid var(--rule); padding-top: 28px; margin-top: 8px; }
+.section-head h2 { font-family: var(--serif); font-weight: 600; font-size: 28px; margin: 0; letter-spacing: -0.01em; }
+.section-head p { margin: 4px 0 0; color: var(--ink-soft); max-width: 40em; }
+.filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 18px 0 16px; }
+.seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; background: var(--panel); }
+.seg button { border: 0; background: none; color: var(--ink-soft); font: 500 14px var(--sans); padding: 7px 12px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--rule); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+select, input[type="search"] {
+  font: 14px var(--sans); color: var(--ink); background: var(--panel);
+  border: 1px solid var(--rule); border-radius: 8px; padding: 7px 10px;
+}
+input[type="search"] { flex: 1 1 220px; min-width: 0; }
+.count { font-size: 14px; color: var(--ink-soft); }
+
+.explorer { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); gap: 20px; align-items: start; }
+.qlist { list-style: none; margin: 0; padding: 0; max-height: 78vh; overflow: auto; border: 1px solid var(--rule); border-radius: 10px; background: var(--panel); }
+.qlist li + li { border-top: 1px solid var(--rule); }
+.qlist button { all: unset; display: block; width: 100%; box-sizing: border-box; padding: 12px 14px; cursor: pointer; }
+.qlist button:hover { background: color-mix(in srgb, var(--mark-soft) 40%, transparent); }
+.qlist button[aria-current="true"] { background: var(--mark-soft); }
+.qlist .q { font-size: 15px; line-height: 1.4; margin-bottom: 6px; }
+.qlist .meta { display: flex; gap: 8px; flex-wrap: wrap; font-size: 12.5px; color: var(--ink-soft); }
+.rank { white-space: nowrap; }
+.rank b { font-weight: 600; color: var(--ink); }
+.rank.miss b { color: var(--worse); }
+.rank.hit-p b { color: var(--better); }
+.empty { padding: 20px 14px; color: var(--ink-soft); }
+
+.detail { background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 22px 22px 8px; min-height: 300px; }
+.detail h3 { font-family: var(--serif); font-weight: 600; font-size: 24px; line-height: 1.25; margin: 0 0 6px; }
+.detail .qmeta { font-size: 13.5px; color: var(--ink-soft); margin-bottom: 16px; }
+.answer { border-left: 4px solid var(--mark); padding: 2px 0 2px 14px; margin: 0 0 20px; }
+.answer .label { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+.answer .text { font-family: var(--serif); font-size: 16.5px; line-height: 1.6; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.col h4 { font-size: 15px; font-weight: 600; margin: 0; }
+.col .how { font-size: 13px; color: var(--ink-soft); margin: 0 0 10px; }
+.col .verdict { font-size: 13.5px; margin: 0 0 12px; padding: 6px 10px; border-radius: 6px; background: var(--paper); }
+.hits { list-style: none; margin: 0 0 14px; padding: 0; counter-reset: r; }
+.hits li { counter-increment: r; display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 4px; padding: 10px 0; border-top: 1px solid var(--rule); }
+.hits li::before { content: counter(r); font-weight: 600; font-size: 14px; color: var(--ink-soft); padding-top: 1px; }
+.hits li.gold::before { color: var(--ink); }
+.hits .doc { font-size: 12.5px; color: var(--ink-soft); margin-bottom: 2px; }
+.hits .doc em { font-style: normal; font-weight: 600; color: var(--ink); background: var(--mark); padding: 0 5px; border-radius: 3px; margin-left: 6px; }
+.hits .txt { font-family: var(--serif); font-size: 15px; line-height: 1.55; overflow-wrap: anywhere; }
+.hits .txt.clamp { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.hits .more { all: unset; cursor: pointer; font-size: 13px; color: var(--ink-soft); text-decoration: underline; text-underline-offset: 3px; margin-top: 2px; }
+mark { background: var(--mark); color: inherit; padding: 0 1px; border-radius: 2px; }
+
+/* results */
+.results { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 40px; padding: 8px 0 24px; }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+th, td { text-align: right; padding: 8px 10px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; white-space: normal; }
+thead th { font-weight: 600; font-size: 13px; color: var(--ink-soft); }
+tr.prod td { font-weight: 600; background: color-mix(in srgb, var(--mark-soft) 55%, transparent); }
+.tablewrap { overflow-x: auto; }
+.note { font-size: 13.5px; color: var(--ink-soft); margin: 10px 0 0; }
+.findings h3, .errors h3 { font-size: 17px; margin: 0 0 8px; }
+.findings p { margin: 0 0 14px; }
+.findings p b { font-weight: 600; }
+.errors { padding-bottom: 36px; }
+.errors table td:nth-child(2) { text-align: right; }
+
+footer { border-top: 1px solid var(--rule); padding: 20px 0 40px; font-size: 14px; color: var(--ink-soft); }
+footer p { margin: 0 0 6px; max-width: 60em; }
+
+@media (max-width: 960px) {
+  .hero, .results { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+  .explorer { grid-template-columns: minmax(0, 1fr); }
+  .qlist { max-height: 340px; }
+}
+@media (max-width: 640px) {
+  .cols { grid-template-columns: minmax(0, 1fr); }
+  #slope text { font-size: 21px; }
+  #slope .axis-title { font-size: 22px; }
+  .hero { padding-top: 32px; }
+  .detail { padding: 18px 16px 4px; }
+  .top nav { gap: 12px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">Groundtruth</div>
+    <nav><a href="#explore">Explore</a><a href="#results">Results</a><a href="https://github.com/Jithu0080/groundtruth">Source on GitHub</a></nav>
+  </header>
+
+  <section class="hero" aria-labelledby="headline">
+    <div>
+      <h1 id="headline">A reranker found the right passage for <span class="hl">68% of legal questions</span>, up from 51%.</h1>
+      <p>Groundtruth is an evaluation harness for a legal research assistant. It measures whether a change to the search system actually helps, using <strong>104 human-reviewed questions</strong> over <strong>700 Supreme Court of India judgments</strong> from 2023.</p>
+      <p>The baseline searches by meaning alone. Production adds keyword search and a reranker that reads each candidate passage against the question. The gain is <strong>+16 points of recall@10</strong> (95% confidence interval +4 to +28) while sending half as much text to the language model.</p>
+    </div>
+    <figure class="figure" style="margin:0">
+      <h2 id="slope-title">Where the correct passage ranked, question by question</h2>
+      <p class="sub" id="slope-sub">74 held-out test questions. Click a band to see its questions.</p>
+      <svg id="slope" viewBox="0 0 640 380" role="img" aria-labelledby="slope-title slope-desc"><desc id="slope-desc"></desc></svg>
+      <div class="legend">
+        <span style="--c: var(--better)">Production ranks it higher</span>
+        <span style="--c: var(--worse)">Production ranks it lower</span>
+        <span style="--c: var(--same)">Same rank</span>
+      </div>
+    </figure>
+  </section>
+
+  <section id="explore" aria-labelledby="explore-title">
+    <div class="section-head">
+      <div>
+        <h2 id="explore-title">Explore the questions</h2>
+        <p>Each question was written from a real passage. The labelled answer is highlighted wherever a retrieved passage contains it.</p>
+      </div>
+    </div>
+    <div class="filters" role="group" aria-label="Filter questions">
+      <div class="seg" id="f-split" role="group" aria-label="Split">
+        <button type="button" data-v="test" aria-pressed="true">Test (74)</button>
+        <button type="button" data-v="dev" aria-pressed="false">Dev (30)</button>
+      </div>
+      <select id="f-outcome" aria-label="Outcome">
+        <option value="all">All outcomes</option>
+        <option value="better">Production ranks it higher</option>
+        <option value="worse">Production ranks it lower</option>
+        <option value="same-hit">Both find it, same rank</option>
+        <option value="both-miss">Both miss it</option>
+      </select>
+      <select id="f-cat" aria-label="Question type">
+        <option value="all">All question types</option>
+      </select>
+      <input type="search" id="f-text" placeholder="Search the questions" aria-label="Search the questions">
+      <span class="count" id="count" aria-live="polite"></span>
+    </div>
+    <div class="explorer">
+      <ul class="qlist" id="qlist" aria-label="Questions"></ul>
+      <article class="detail" id="detail" aria-live="polite"><p class="empty">Loading questions.</p></article>
+    </div>
+  </section>
+
+  <section id="results" aria-labelledby="results-title">
+    <div class="section-head" style="margin-top:40px">
+      <div>
+        <h2 id="results-title">Results</h2>
+        <p>Test split, 74 questions. Settings were chosen on the dev split and reported on test.</p>
+      </div>
+    </div>
+    <div class="results">
+      <div>
+        <div class="tablewrap">
+        <table>
+          <thead><tr><th scope="col">Configuration</th><th scope="col">Recall@10</th><th scope="col">MRR</th><th scope="col">nDCG@10</th><th scope="col">Text sent to the LLM</th><th scope="col">p95 latency</th></tr></thead>
+          <tbody>
+            <tr><td>Baseline: meaning search, 800-character passages</td><td>0.513</td><td>0.291</td><td>0.344</td><td>7,916 chars</td><td>27 ms</td></tr>
+            <tr><td>Meaning search, 400-character passages</td><td>0.540</td><td>0.329</td><td>0.380</td><td>3,952 chars</td><td>31 ms</td></tr>
+            <tr><td>Meaning search, 1,600-character passages</td><td>0.622</td><td>0.302</td><td>0.376</td><td>15,825 chars</td><td>20 ms</td></tr>
+            <tr><td>Keyword search (BM25), 400</td><td>0.446</td><td>0.276</td><td>0.315</td><td>3,956 chars</td><td>7 ms</td></tr>
+            <tr><td>Meaning + keyword (hybrid), 400</td><td>0.581</td><td>0.324</td><td>0.385</td><td>3,955 chars</td><td>48 ms</td></tr>
+            <tr class="prod"><td>Production: hybrid + reranker, 400</td><td>0.676</td><td>0.491</td><td>0.535</td><td>3,958 chars</td><td>132 ms</td></tr>
+            <tr><td>Meaning search + reranker, 400 (ablation)</td><td>0.703</td><td>0.500</td><td>0.549</td><td>3,958 chars</td><td>134 ms</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <p class="note">Only the two reranker configurations beat the baseline beyond noise (paired bootstrap, 10,000 resamples). Latency was measured on a Colab T4 GPU.</p>
+      </div>
+      <div class="findings">
+        <h3>What the numbers showed</h3>
+        <p><b>The reranker does the work.</b> The baseline already had 77% of answers in its top 50 but only 51% in its top 10. Rereading those 50 against the question recovered most of the gap.</p>
+        <p><b>Keyword search was the weakest retriever,</b> because the questions were written in plain language rather than copied from the judgments. An evaluation set that copies wording would flatter it.</p>
+        <p><b>Big passages inflate recall.</b> 1,600-character passages score 0.622 but send four times as much text. Recall has to be read next to context size.</p>
+        <p><b>Keyword search adds nothing once there is a reranker.</b> The ablation is slightly better without it, within noise. It was measured on test, so it is a candidate for the next version, not a reason to switch.</p>
+      </div>
+    </div>
+    <div class="errors">
+      <h3>Why production still misses 24 test questions</h3>
+      <div class="tablewrap">
+      <table>
+        <thead><tr><th scope="col">Cause</th><th scope="col">Questions</th></tr></thead>
+        <tbody>
+          <tr><td>The answer was retrieved from elsewhere in the same judgment, for example a headnote that repeats the body</td><td>10</td></tr>
+          <tr><td>Near-identical text exists in another judgment, including one judgment stored twice</td><td>7</td></tr>
+          <tr><td>The question's wording never connected to the legal term, such as "approbate and reprobate"</td><td>4</td></tr>
+          <tr><td>The question was too vague to identify one case</td><td>3</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p class="note">Only 4 of 74 test questions are genuine vocabulary misses. The right judgment is in the top 10 for about 85% of questions, so the strict one-passage labels under-state the system.</p>
+    </div>
+  </section>
+
+  <footer>
+    <p>Judgments from the <a href="https://registry.opendata.aws/indian-supreme-court-judgments/">Indian Supreme Court Judgments</a> open dataset, licensed CC-BY-4.0: a 700-document sample of the 2023 English judgments, with text extracted from PDF and cleaned.</p>
+    <p>Questions were drafted with an LLM from randomly sampled passages, then reviewed, edited and accepted one by one. Results on this page were precomputed with the same models and settings as the evaluation. Built by Jithin. <a href="https://github.com/Jithu0080/groundtruth">Code, evaluation harness and CI gate on GitHub.</a></p>
+  </footer>
+</div>
+
+<script>
+(() => {
+  const RANK_MAX = 10;
+  const state = { split: "test", outcome: "all", cat: "all", text: "", band: null, selected: null };
+  let DATA = [];
+
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, attrs = {}, ...kids) => {
+    const n = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k === "class") n.className = v;
+      else if (k === "text") n.textContent = v;
+      else n.setAttribute(k, v);
+    }
+    for (const k of kids) if (k != null) n.append(k);
+    return n;
+  };
+  const rankWord = (r) => (r == null ? "not in top 10" : "#" + r);
+  const outcomeOf = (q) => {
+    const b = q.baseline.gold_rank, p = q.production.gold_rank;
+    if (b == null && p == null) return "both-miss";
+    const bv = b ?? 99, pv = p ?? 99;
+    if (pv < bv) return "better";
+    if (pv > bv) return "worse";
+    return "same-hit";
+  };
+
+  // ---------- slope chart ----------
+  function drawSlope() {
+    const svg = $("slope");
+    const xL = 118, xR = 522, top = 42, bottom = 318;
+    const y = (r) => (r == null ? bottom + 40 : top + (r - 1) * ((bottom - top) / (RANK_MAX - 1)));
+    const ns = "http://www.w3.org/2000/svg";
+    const mk = (t, a) => { const n = document.createElementNS(ns, t); for (const k in a) n.setAttribute(k, a[k]); return n; };
+    [...svg.querySelectorAll(":scope > :not(desc)")].forEach((n) => n.remove());
+    const qs = DATA.filter((q) => q.split === state.split);
+    $("slope-sub").textContent = `${qs.length} ${state.split === "test" ? "held-out test" : "dev"} questions. Click a band to see its questions.`;
+
+    const tL = mk("text", { x: xL, y: 18, "text-anchor": "middle", class: "axis-title" }); tL.textContent = "Baseline"; svg.append(tL);
+    const tR = mk("text", { x: xR, y: 18, "text-anchor": "middle", class: "axis-title" }); tR.textContent = "Production"; svg.append(tR);
+    for (const r of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, null]) {
+      const label = r == null ? "missed" : "#" + r;
+      const a = mk("text", { x: xL - 22, y: y(r) + 4, "text-anchor": "end" }); a.textContent = label; svg.append(a);
+      const b = mk("text", { x: xR + 22, y: y(r) + 4, "text-anchor": "start" }); b.textContent = label; svg.append(b);
+    }
+    svg.append(mk("line", { x1: xL, x2: xL, y1: top - 8, y2: bottom + 50, stroke: "var(--rule)" }));
+    svg.append(mk("line", { x1: xR, x2: xR, y1: top - 8, y2: bottom + 50, stroke: "var(--rule)" }));
+
+    const groups = new Map();
+    for (const q of qs) {
+      const key = `${q.baseline.gold_rank ?? "m"}|${q.production.gold_rank ?? "m"}`;
+      if (!groups.has(key)) groups.set(key, { b: q.baseline.gold_rank, p: q.production.gold_rank, qids: [] });
+      groups.get(key).qids.push(q.qid);
+    }
+    const sorted = [...groups.values()].sort((a, b) => b.qids.length - a.qids.length);
+    let better = 0, worse = 0, same = 0;
+    for (const g of sorted.reverse()) {
+      const o = outcomeOf({ baseline: { gold_rank: g.b }, production: { gold_rank: g.p } });
+      const color = o === "better" ? "var(--better)" : o === "worse" ? "var(--worse)" : "var(--same)";
+      if (o === "better") better += g.qids.length; else if (o === "worse") worse += g.qids.length; else same += g.qids.length;
+      const y1 = y(g.b), y2 = y(g.p), mx = (xL + xR) / 2;
+      const path = mk("path", {
+        d: `M${xL} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${xR} ${y2}`,
+        stroke: color, "stroke-width": 2 + g.qids.length * 1.7, opacity: o === "same-hit" || o === "both-miss" ? 0.45 : 0.8,
+        class: "band", tabindex: "0", role: "button",
+        "aria-label": `${g.qids.length} question${g.qids.length > 1 ? "s" : ""}: baseline ${rankWord(g.b)}, production ${rankWord(g.p)}`,
+      });
+      const t = mk("title", {}); t.textContent = path.getAttribute("aria-label"); path.append(t);
+      const key = `${g.b ?? "m"}|${g.p ?? "m"}`;
+      if (state.band === key) path.classList.add("active");
+      const pick = () => { state.band = state.band === key ? null : key; state.outcome = "all"; $("f-outcome").value = "all"; render(); };
+      path.addEventListener("click", pick);
+      path.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(); } });
+      svg.append(path);
+    }
+    $("slope-desc").textContent = `Of ${qs.length} questions, production ranks the correct passage higher for ${better}, lower for ${worse}, and the same for ${same}.`;
+  }
+
+  // ---------- question list ----------
+  function filtered() {
+    const text = state.text.trim().toLowerCase();
+    return DATA.filter((q) =>
+      q.split === state.split &&
+      (state.cat === "all" || q.category === state.cat) &&
+      (state.outcome === "all" || outcomeOf(q) === state.outcome) &&
+      (!state.band || `${q.baseline.gold_rank ?? "m"}|${q.production.gold_rank ?? "m"}` === state.band) &&
+      (!text || q.query.toLowerCase().includes(text))
+    );
+  }
+  function rankSpan(label, r, isProd) {
+    const s = el("span", { class: "rank" + (r == null ? " miss" : isProd ? " hit-p" : "") });
+    s.append(label + " ", el("b", { text: rankWord(r) }));
+    return s;
+  }
+  function renderList() {
+    const list = $("qlist"); list.replaceChildren();
+    const qs = filtered();
+    $("count").textContent = `${qs.length} question${qs.length === 1 ? "" : "s"}` + (state.band ? " in the selected band" : "");
+    if (!qs.length) {
+      list.append(el("li", { class: "empty", text: "No questions match these filters. Clear the search or pick another outcome." }));
+      return qs;
+    }
+    for (const q of qs) {
+      const btn = el("button", { type: "button", "aria-current": String(q.qid === state.selected) },
+        el("div", { class: "q", text: q.query }),
+        el("div", { class: "meta" }, el("span", { text: q.category }), rankSpan("Baseline", q.baseline.gold_rank, false), rankSpan("Production", q.production.gold_rank, true)));
+      btn.addEventListener("click", () => { state.selected = q.qid; renderList(); renderDetail(); if (window.innerWidth < 960) $("detail").scrollIntoView({ behavior: "smooth", block: "start" }); });
+      list.append(el("li", {}, btn));
+    }
+    return qs;
+  }
+
+  // ---------- detail ----------
+  function passageText(hit, gold) {
+    const box = el("div", { class: "txt" });
+    const s = Math.max(hit.start, gold.start), e = Math.min(hit.end, gold.end);
+    if (hit.doc === gold.doc && e > s) {
+      const a = s - hit.start, b = e - hit.start;
+      box.append(hit.text.slice(0, a), el("mark", { text: hit.text.slice(a, b) }), hit.text.slice(b));
+    } else box.textContent = hit.text;
+    return box;
+  }
+  function column(title, how, res, gold) {
+    const col = el("div", { class: "col" }, el("h4", { text: title }), el("p", { class: "how", text: how }));
+    col.append(el("p", { class: "verdict", text: res.gold_rank == null ? "The labelled answer is not in its top 10." : `The labelled answer is at rank ${res.gold_rank}.` }));
+    const ol = el("ol", { class: "hits" });
+    res.hits.forEach((h) => {
+      const goldLen = gold.end - gold.start;
+      const cover = h.doc === gold.doc ? Math.max(0, Math.min(h.end, gold.end) - Math.max(h.start, gold.start)) / goldLen : 0;
+      const isGold = cover >= 0.5;
+      const doc = el("div", { class: "doc", text: h.doc });
+      if (isGold) doc.append(el("em", { text: "Labelled answer" }));
+      const txt = passageText(h, gold);
+      const li = el("li", isGold ? { class: "gold" } : {}, el("div", {}, doc, txt));
+      const overlapsGold = h.doc === gold.doc && Math.min(h.end, gold.end) > Math.max(h.start, gold.start);
+      if (h.text.length > 330 && !overlapsGold) {
+        txt.classList.add("clamp");
+        const more = el("button", { class: "more", type: "button", text: "Show full passage", "aria-expanded": "false" });
+        more.addEventListener("click", () => {
+          const open = txt.classList.toggle("clamp") === false;
+          more.textContent = open ? "Show less" : "Show full passage";
+          more.setAttribute("aria-expanded", String(open));
+        });
+        li.firstChild.append(more);
+      }
+      ol.append(li);
+    });
+    col.append(ol);
+    return col;
+  }
+  function renderDetail() {
+    const box = $("detail"); box.replaceChildren();
+    const q = DATA.find((d) => d.qid === state.selected);
+    if (!q) { box.append(el("p", { class: "empty", text: "Pick a question to compare the two systems." })); return; }
+    box.append(
+      el("h3", { text: q.query }),
+      el("div", { class: "qmeta", text: `Question ${q.qid}, ${q.category}, ${q.split} split` }),
+      el("div", { class: "answer" }, el("div", { class: "label", text: `Labelled answer, from ${q.gold.doc}` }), el("div", { class: "text", text: q.gold.text })),
+      el("div", { class: "cols" },
+        column("Baseline", "Meaning search over 800-character passages", q.baseline, q.gold),
+        column("Production", "Hybrid search and a reranker over 400-character passages", q.production, q.gold))
+    );
+  }
+
+  function render() {
+    drawSlope();
+    const qs = renderList();
+    if (!qs.some((q) => q.qid === state.selected)) state.selected = qs.length ? qs[0].qid : null;
+    renderList();
+    renderDetail();
+  }
+
+  // ---------- controls ----------
+  $("f-split").addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    state.split = b.dataset.v; state.band = null;
+    for (const x of $("f-split").querySelectorAll("button")) x.setAttribute("aria-pressed", String(x === b));
+    render();
+  });
+  $("f-outcome").addEventListener("change", (e) => { state.outcome = e.target.value; state.band = null; render(); });
+  $("f-cat").addEventListener("change", (e) => { state.cat = e.target.value; render(); });
+  $("f-text").addEventListener("input", (e) => { state.text = e.target.value; render(); });
+
+  fetch("explorer.json").then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); }).then((d) => {
+    DATA = d.questions;
+    const cats = [...new Set(DATA.map((q) => q.category))].sort();
+    for (const c of cats) $("f-cat").append(el("option", { value: c, text: c }));
+    const tests = DATA.filter((q) => q.split === "test").length, devs = DATA.length - tests;
+    $("f-split").children[0].textContent = `Test (${tests})`;
+    $("f-split").children[1].textContent = `Dev (${devs})`;
+    const firstWin = DATA.find((q) => q.split === "test" && outcomeOf(q) === "better");
+    state.selected = firstWin ? firstWin.qid : null;
+    render();
+  }).catch(() => {
+    $("detail").replaceChildren(el("p", { class: "empty", text: "The question data (explorer.json) could not be loaded. Open this page through a web server or GitHub Pages, not as a local file." }));
+  });
+})();
+</script>
+</body>
+</html>

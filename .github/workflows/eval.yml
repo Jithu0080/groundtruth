@@ -28,6 +28,10 @@ jobs:
             ~/.cache/huggingface
             .cache/embeddings
           key: emb-${{ hashFiles('data/corpus/**', 'configs/production.yaml', 'requirements.txt') }}
+          # Embedding files are named by model, chunk size and corpus hash, so restoring an older cache is
+          # safe: a config change reuses matching files and recomputes only what is missing.
+          restore-keys: |
+            emb-
       - name: Lint and type check
         run: |
           ruff check src tests
