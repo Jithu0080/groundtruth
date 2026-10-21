@@ -20,3 +20,4 @@ raw/
 results/runs/
 results/runs*/
 data/candidates_more.jsonl
+data/*.backup-*

@@ -1,4 +1,4 @@
-# Groundtruth
+# Groundtruth: Retrieval Evaluation Harness for Legal RAG
 
 **An evaluation harness that measures whether a retrieval change actually helped a legal research assistant, and blocks the changes that make it worse.**
 
